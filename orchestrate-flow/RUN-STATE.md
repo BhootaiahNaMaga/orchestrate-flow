@@ -14,7 +14,9 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
   nodes/<stage>/<item>/
     result.md         # worker's final report for this node
     loop.md           # loop log (LOOP.md)
+    attempt-<id>/     # one tool job's outputs, logs, and finish marker
   wt/<item>/          # git worktrees, one per item
+  wt/_once/<stage>/   # git worktrees for once-only stages
   retrospective.md    # close-out
 ```
 
@@ -37,7 +39,15 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
       "best_measure": 37,
       "best_commit": "9f8e7d6",
       "stuck_count": 1,
-      "queue_job_ids": ["123456"],
+      "attempts": [
+        {
+          "attempt_id": "verify-cg_cand_001-a4",
+          "job_id": "123456",
+          "tested_commit": "a1b2c3d",
+          "output_dir": "nodes/verify/cg_cand_001/attempt-verify-cg_cand_001-a4",
+          "state": "queued | running | finished | cancelled | unknown"
+        }
+      ],
       "updated": "2026-09-23T18:40:00Z",
       "note": "bound 37, stuck at same CEX"
     }
@@ -81,7 +91,16 @@ Write it after every change; write to a temp file and rename so a crash never le
 | `integrating` | conflict or integration check fails | `ready` (failure in the brief's Notes) |
 | `blocked`, `finding` | user resolves it (review or plan change) | `ready` |
 
-A `running` node found on resume with no live worker is re-dispatched; its `loop.md` tells the worker where to continue.
+## Attempts and tool jobs
+
+The worker records an attempt in `loop.md`, and the orchestrator copies it into `state.json`, **before** waiting on the job: attempt id, scheduler job id, tested commit, and output dir. Every job writes only into its own `attempt-<id>/` dir, and its finish marker counts only there, so a stale job can never complete a newer attempt. Jobs whose state is `queued`, `running`, or `unknown` count against the concurrency caps, whether or not a worker still owns them.
+
+**Recovery.** A `running` node found on resume with no live worker:
+
+1. Query every recorded job that is not `finished` or `cancelled` with the plan's scheduler status command.
+2. A job still alive → re-dispatch a worker with `Adopt: <attempt id>` in its brief; it waits on that job instead of launching one.
+3. A job that ended → re-dispatch a worker to collect that attempt's outputs and continue from `loop.md`.
+4. A job whose state cannot be determined → cancel it and launch a replacement only after the scheduler confirms the cancel. If it cannot be confirmed, mark the attempt `unknown`, keep counting it against the caps, and mark the node `blocked` with the job id.
 
 ## result.md (written by the worker)
 

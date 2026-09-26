@@ -4,8 +4,8 @@ A loop turns a skill set (run a tool, check, debug, fix) into a node that ends o
 
 ## One round
 
-1. **Run**: launch the tool through the stage's skill (TCL → queue). Record the queue job id in `loop.md`.
-2. **Wait**: poll the finish marker and the log, not the agent's command status. A job with no marker and no log growth for the stage's timeout is a failed round: record it, don't loop on it silently.
+1. **Run**: pick the next attempt id and point the tool's outputs at `nodes/<stage>/<item>/attempt-<id>/`. Launch the tool through the stage's skill (TCL → queue). Append the attempt id, job id, and tested commit to `loop.md` before anything else. With `Adopt: <attempt id>` in the brief, skip the launch and wait on that job.
+2. **Wait**: poll the finish marker and the log inside that attempt's dir, not the agent's command status. A job with no marker and no log growth for the stage's **timeout** is a failed round: cancel it with the plan's cancel command, confirm the cancel, and record it before the next round.
 3. **Check**: evaluate the exit check. Pass → write `result.md` with `status: done` and the evidence. Stop.
 4. **Measure**: read the progress measure and compare with the best so far.
    - **Progress**: better than best → commit, record as new best, reset stuck count.
@@ -27,7 +27,7 @@ Append one entry per round, written before starting the next:
 
 ```md
 ## Round 4 — 2026-09-23 18:40
-- job: 123456 (finish marker seen 18:31)
+- attempt: verify-cg_cand_001-a4   job: 123456 (finish marker seen 18:31)
 - tested_commit: 9f8e7d6   (the revision the job measured)
 - check: FAIL (assert_cg_en_stable, CEX at depth 37)
 - measure: bound 37 (best 37 @ 9f8e7d6, prior 31) → progress

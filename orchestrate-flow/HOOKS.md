@@ -26,7 +26,7 @@ Keep hook scripts in `.agents/runs/<run-id>/hooks/` so they travel with the run 
 
 | Hook | Event | Does | Typical stage |
 |---|---|---|---|
-| **scope-guard** | `PreToolUse` on file-edit tools | `deny` edits outside the stage's edit scope (read from the plan by stage name) | every verification stage |
+| **scope-guard** | `PreToolUse` on file-edit tools | `deny` edits outside the stage's edit scope (read from the plan by stage name); always `allow` the run folder, where workers write records | every verification stage |
 | **lint-after-edit** | `PostToolUse` on file-edit tools | run the fast linter on the edited file, surface errors | code stages |
 | **exit-check-on-stop** | `Stop` | re-run the loop's cheap exit check; `continue` if it fails and the stuck/hard caps in `loop.md` are not reached | any looping stage |
 | **env-setup-guard** | `PreToolUse` on command tools | `deny` tool launches when the tool environment is not sourced, with the fix in the message | stages that launch CAD tools |

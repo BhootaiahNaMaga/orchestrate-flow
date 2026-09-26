@@ -9,6 +9,8 @@
 
 **Run**: <run-id>   **Objective**: <e.g. wall-clock time>   **Base branch**: <branch>
 **Concurrency**: global <n>; <tool>: <n>, ...   **Tool mode**: gui | batch
+**Scheduler**: status `<command with job id>`; cancel `<command with job id>`
+**Integration check**: `<command run on the merged candidate branch>`
 
 ## Graph
 
@@ -32,7 +34,7 @@ flowchart LR
 - **Inputs**: <files or upstream stage outputs>
 - **Outputs**: <files>
 - **Edit scope**: <paths it may change>
-- **Tool**: <tool, or none>   **Finish marker**: <log line / file>
+- **Tool**: <tool, or none>   **Finish marker**: <log line / file>   **Timeout**: <minutes with no marker and no log growth>
 - **Loop**: <none> | exit check `<command or log condition>`; progress `<measure>` (higher|lower is better); hard cap <n>
 - **Gate**: none | check `<command>` | review
 - **Hooks**: <hook names from HOOKS.md patterns, or none>

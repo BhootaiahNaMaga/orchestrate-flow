@@ -49,8 +49,9 @@ The frontier is empty only when every item below is answered for this run:
 - **Edit scope** per stage: which paths it may change. A root cause outside scope (RTL or spec during verification) is logged as a finding, not fixed.
 - **Feedback edges**: which later stages may send work back (coverage → tests) and the cap on round trips.
 - **Concurrency**: global cap on concurrent tool jobs (default 10) and optional per-tool caps for scarce licenses.
-- **Tool mode**: `gui` or `batch`, and the **finish marker** each tool run prints (a log line or file the TCL writes on completion). Job completion is judged from the marker and logs, never from the agent's command status.
-- **Integration**: the git base branch to fork from.
+- **Tool mode**: `gui` or `batch`, the **finish marker** each tool run prints (a log line or file the TCL writes on completion), and each stage's **timeout**. Job completion is judged from the marker and logs, never from the agent's command status.
+- **Scheduler**: the commands that report a job's status and cancel a job by id. Recovery depends on them.
+- **Integration**: the git base branch to fork from, and the **integration check**: the command that proves the merged result is valid as a whole (compile, smoke test, config lint).
 
 ## 3. Build the graph
 
@@ -83,28 +84,40 @@ Repeat this cycle until close-out (step 7). Node statuses and their transitions:
 1. **Re-read** `state.json` and every `reviews/*.md`. Trust the files over your memory.
 2. **Collect**: for each returned worker, read its `result.md`; verify the evidence it cites (log lines, check output) exists before marking the node `executed`. Update measures and the loop log path. Mark dependants of new `blocked` or `finding` nodes `blocked-upstream`.
 3. **Gate**: an `executed` node with gate `none`, or passing its `check` gate, goes to `integrating` (see Merging). A `review` gate appends the node and its revision to `reviews/<gate>.md` and marks it `waiting-review`. Apply every `approved` or `changes-requested` review file per the transitions table, then archive it.
-4. **Dispatch**: find ready nodes (inputs present, gates passed, not waiting). Dispatch `stage-worker` subagents concurrently up to the caps; each running worker counts as one job against its stage's tool. Give each the brief below.
+4. **Dispatch**: find ready nodes (inputs present, gates passed, not waiting). Dispatch `stage-worker` subagents concurrently up to the caps; each running worker, and each live job with no worker, counts as one job against its stage's tool. A worktree has **one writer**: never dispatch a node whose worktree another `running` or `integrating` node holds. Give each the brief below.
 5. **Record**: write `state.json`, append to `log.md`, regenerate `STATUS.md` (with the status-colored diagram) after every change.
 6. **Wait** on running workers. Ask the user with `ask_question` only when nothing can progress without them; otherwise the pending reviews at the top of `STATUS.md` are how they learn.
 
 **Node brief** (the worker inherits none of this conversation, so the brief is complete on its own):
 
 ```
-Run: .agents/runs/<id>   Node: <stage>/<item>   Worktree: <path>   Branch: <branch>
+Run: <absolute run path>   Node: <stage>/<item>   Worktree: <absolute path>   Branch: <branch>
 Orchestrator folder: <absolute path to this skill's folder> (LOOP.md, RUN-STATE.md)
 Skill(s) to follow: <absolute paths to SKILL.md>
-Inputs: <files>          Outputs expected: <files>
-Edit scope: <paths>      Out of scope → log as finding
+Inputs: <absolute paths>          Outputs expected: <absolute paths>
+Edit scope: <paths relative to the worktree>      Out of scope → log as finding
+Records: <absolute path to nodes/<stage>/<item>/> (result.md, loop.md, attempt dirs; always writable)
 Loop: <exit check>; progress = <measure, direction>; stuck limit 3; hard cap <n>
-Tool: <name>, mode <gui|batch>, finish marker <marker>; one tool job at a time
-Loop log: <path> (continue from it if it exists)
+Tool: <name>, mode <gui|batch>, finish marker <marker>, timeout <min>; one tool job at a time
+Scheduler: status <command>; cancel <command>
+Adopt: <attempt id to wait on instead of launching, or none>
+Loop log: <absolute path> (continue from it if it exists)
+Hooks: <absolute paths of hook scripts active for this stage, or none>
 Notes: <lessons from earlier nodes, hook changes>
 Write result.md when done, blocked, or finding.
 ```
 
-**Worktrees**: per-item nodes run in their own worktree: `git worktree add <run>/wt/<item> -b flow/<run-id>/<item> flow/<run-id>`. Write `<worktree>/.stage` with the stage name before each dispatch; hooks read it.
+**Worktrees**: per-item nodes run in their item's worktree: `git worktree add <run>/wt/<item> -b flow/<run-id>/<item> flow/<run-id>`. Once-only nodes get their own: `git worktree add <run>/wt/_once/<stage> -b flow/<run-id>/_<stage> flow/<run-id>`, and integrate the same way as items. Write `<worktree>/.stage` with the stage name before each dispatch; hooks read it.
 
-**Merging**: merge a passed item branch into `flow/<run-id>`. On conflict, dispatch a worker to rebase the item branch onto `flow/<run-id>` and re-run its exit check; a failing check returns the node to its loop. Never merge into the user's base branch; that is the user's call at close-out.
+**Merging**: integrate **one node at a time**; a clean textual merge proves nothing about the combined result.
+
+1. Reset `flow/<run-id>/candidate` to `flow/<run-id>` and merge the node's branch (its `best_commit`) into it.
+2. On conflict, dispatch a worker to rebase the node's branch onto `flow/<run-id>` and re-run its exit check; a failing check returns the node to `ready`. Then start again from 1.
+3. Run the plan's integration check on the candidate.
+4. Pass → fast-forward `flow/<run-id>` to the candidate and mark the node `done`.
+5. Fail → keep the candidate as `flow/<run-id>/failed/<node>-<n>` for diagnosis, log it, and return the node to `ready` with the failure in its brief's Notes. `flow/<run-id>` never holds an unchecked merge.
+
+Never merge into the user's base branch; that is the user's call at close-out.
 
 **Feedback edges**: when a node emits work for an earlier stage (coverage holes → new test items), add new items or re-open nodes per the plan's edge, counting round trips against the edge cap.
 

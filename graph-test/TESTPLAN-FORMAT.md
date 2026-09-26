@@ -6,6 +6,7 @@ One file per design: `testplans/<design>.md`. It is the standard every run is ju
 # Test plan: <design>
 graph_skill: <path> @ <commit>
 launch: foo-graph <design>
+jobs: <where the graph records live tool job ids>; cancel `<command>`   (source: <graph skill file:line>)
 approved: pending
 
 ## Nodes

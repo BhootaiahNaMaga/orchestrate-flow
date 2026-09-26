@@ -81,7 +81,7 @@ Every `poll_minutes`, for each running run:
 1. Read the new part of the transcript and trace since the last poll (keep a cursor in `state.json`).
 2. **Questions**: the graph is waiting on the user when the chat asks a question **or** a review file on the answer sheet is `pending` in the run's folder. Answer from the answer sheet through its **How** channel: send message, or edit that review file. A question not on the sheet is an issue (`unplanned-question`); answer it with the most conservative option, record exactly what you answered, and carry on.
 3. **Early checks** from JUDGE.md "Watch-time checks": a node that should run as a subagent ran inline, a loop missing or broken, a node past its hang timeout with no trace or log growth.
-4. **Abort** when an issue is certain to spoil the run (the graph cannot reach a correct end from here): stop the chat, set the run `aborted` with the issue. Otherwise record the issue and let the run continue: later nodes still yield evidence.
+4. **Abort** when an issue is certain to spoil the run (the graph cannot reach a correct end from here): stop the chat, set the run `aborted` with the issue. Stopping a chat does not stop its tool jobs: read live job ids from where the test plan's `jobs` line says, cancel each with its cancel command, and record the result. A job that won't confirm cancelled is a finding and counts against concurrency until it ends. Otherwise record the issue and let the run continue: later nodes still yield evidence.
 5. When the chat ends, set the run `ended` and go to step 5 for it.
 
 Append every poll's outcome to `runs/<run-id>/watch.md`. Keep only the run summary in your context; the transcript stays on disk.
