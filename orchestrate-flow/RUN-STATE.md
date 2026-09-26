@@ -24,9 +24,10 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
 
 ```json
 {
-  "run_id": "20260923-spec-to-coverage",
+  "schema_version": 2,
+  "run_id": "20260923-1400-spec-to-coverage",
   "phase": "intake | interview | awaiting-plan-approval | pilot | running | awaiting-review | closed",
-  "integration_branch": "flow/20260923-spec-to-coverage",
+  "integration_branch": "flow/20260923-1400-spec-to-coverage",
   "caps": { "global": 10, "per_tool": { "formal": 4 } },
   "items": ["cg_cand_001", "cg_cand_002"],
   "nodes": {
@@ -34,7 +35,7 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
       "status": "pending | ready | running | executed | waiting-review | integrating | done | blocked | blocked-upstream | finding",
       "tool": "formal",
       "worktree": "wt/cg_cand_001",
-      "branch": "flow/20260923-spec-to-coverage/cg_cand_001",
+      "branch": "flow/20260923-1400-spec-to-coverage/cg_cand_001",
       "rounds": 4,
       "best_measure": 37,
       "best_commit": "9f8e7d6",
@@ -52,11 +53,14 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
       "note": "bound 37, stuck at same CEX"
     }
   },
-  "feedback_trips": { "cov->tb": 1 }
+  "feedback_trips": { "cov->tb": 1 },
+  "ops": [
+    { "op": "branch | commit | merge | dispatch | launch-job | cancel-job", "target": "verify/cg_cand_001", "status": "intent | done", "at": "2026-09-23T18:41:00Z" }
+  ]
 }
 ```
 
-Write it after every change; write to a temp file and rename so a crash never leaves it half-written.
+Write it after every change; write to a temp file and rename so a crash never leaves it half-written. The rename protects the file, not the git or scheduler operation beside it: that is what `ops` is for (SKILL.md step 0 reconciles it). A file with a missing or older `schema_version` is migrated or reported before anything else runs.
 
 ## Node statuses
 
@@ -81,6 +85,7 @@ Write it after every change; write to a temp file and rename so a crash never le
 | `pending` | an upstream node `blocked`, `blocked-upstream`, or `finding` | `blocked-upstream` |
 | `ready` | dispatched | `running` |
 | `running` | `result.md` `done`, evidence verified | `executed` |
+| `running` | `result.md` missing, or its evidence cannot be verified | `ready` (what was missing in the brief's Notes) |
 | `running` | `result.md` `blocked` or `finding` | `blocked` / `finding` |
 | `executed` | gate `none` or `check` (check passes) | `integrating` |
 | `executed` | gate `check` fails | `ready` (failure in the brief's Notes) |

@@ -10,7 +10,7 @@ slug: spec-to-coverage
 goal: Spec → testplan → testbench → verification → coverage closure
 skills: [bringup, testplan-gen, tb-gen, formal-debug, coverage]
 runs: 3
-last_run: 20260923-spec-to-coverage
+last_run: 20260923-1400-spec-to-coverage
 ---
 ## Graph
 <the plan.md Graph and Stages sections from the best run, with tuned caps>

@@ -23,14 +23,14 @@ Read a loop's **exit reason** before judging its rounds. A permitted unsuccessfu
 
 | Field | Values |
 |---|---|
-| intention | `met` / `not-met` / `not-reached` (evidence) |
-| runs as | `correct` / `wrong` (expected vs actual) |
-| loops | per loop: rounds, exit reason, `correct` / `broken` / `missing` |
+| intention | `met` / `not-met` / `not-reached` / `unknown` (evidence) |
+| runs as | `correct` / `wrong` / `unknown` (expected vs actual) |
+| loops | per loop: rounds, exit reason, `correct` / `broken` / `missing` / `unknown` |
 | duration | actual vs expected |
 
 ### Learnings log
 
-Judge each against the trace, not against the log's own claims.
+Judge each against the trace, not against the log's own claims. Each verdict may be `unknown` when the trace cannot settle it.
 
 | Verdict | Question |
 |---|---|

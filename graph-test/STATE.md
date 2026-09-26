@@ -21,21 +21,27 @@ graphtest/<batch-id>/
 
 ```json
 {
-  "batch_id": "20260923-foo-graph",
+  "schema_version": 2,
+  "batch_id": "20260923-2000-foo-graph",
   "phase": "testplan | awaiting-testplan-approval | baseline | patching | regression | final | closed",
   "inputs": {
     "graph_skill": "/path/to/foo-graph",
     "designs": ["designA"],
     "max_rounds": 10,
     "max_wallclock": "7d",
+    "hard_deadline": null,
     "max_tries_per_issue": 5,
     "poll_minutes": 15
   },
   "started": "2026-09-23T20:00:00Z",
-  "branch": "graphtest/20260923-foo-graph",
+  "branch": "graphtest/20260923-2000-foo-graph",
   "base_commit": "abc1234",
   "head_commit": "def5678",
   "round": 2,
+  "confirmation": "pending | confirmed | unconfirmed | inconclusive | skipped",
+  "ops": [
+    { "op": "commit | revert | start-chat | stop-chat | cancel-job", "target": "I-02 try 3", "status": "intent | done", "at": "2026-09-23T21:05:00Z" }
+  ],
   "runs": {
     "r007": {
       "design": "designA",
@@ -63,7 +69,7 @@ graphtest/<batch-id>/
 }
 ```
 
-Write it after every change: write to a temp file and rename, so a crash never leaves it half-written.
+Write it after every change: write to a temp file and rename, so a crash never leaves it half-written. The rename protects the file, not the git or chat operation beside it: that is what `ops` is for (SKILL.md step 0 reconciles it). A file with a missing or older `schema_version` is migrated or reported before anything else runs.
 
 ## Phases
 
@@ -74,5 +80,5 @@ Write it after every change: write to a temp file and rename, so a crash never l
 | `baseline` | first fresh run on every design, unpatched |
 | `patching` | a patch try running on one design |
 | `regression` | a passed patch running on all designs |
-| `final` | fresh + learnings-kept confirmation pair per design |
+| `final` | fresh + learnings-kept confirmation pair per design; outcome in `confirmation` |
 | `closed` | report written |

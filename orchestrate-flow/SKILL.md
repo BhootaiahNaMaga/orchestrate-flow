@@ -15,9 +15,11 @@ Terms used throughout:
 
 ## 0. Resume first
 
-List `.agents/runs/`. If the user named a run, or exactly one run has `state.json` with `phase` other than `closed`, read its `state.json`, `plan.md`, and `STATUS.md`, then jump to the step its `phase` names. Never restart a run that has state. Formats: [RUN-STATE.md](RUN-STATE.md).
+List `.agents/runs/`. Formats: [RUN-STATE.md](RUN-STATE.md).
 
-Otherwise create `.agents/runs/<yyyymmdd>-<slug>/` and continue with step 1.
+- The user named a run, or exactly one run has `state.json` with `phase` other than `closed` → resume it: read its `state.json`, `plan.md`, and `STATUS.md`. **Reconcile** first: for each `ops` entry still `intent`, check git (branch, commit, merge) and the scheduler (job) for what actually happened and record it; then recover `running` nodes (RUN-STATE.md "Attempts and tool jobs"). Jump to the step its `phase` names. Never restart a run that has state.
+- Several runs are open → list them (id, phase, what needs the user) and ask which to resume. Create a new one only when the user says so.
+- None open → create `.agents/runs/<yyyymmdd-hhmm>-<slug>/` (add `-2`, `-3`… if taken) and continue with step 1.
 
 ## 1. Intake and skill audit
 
@@ -85,7 +87,7 @@ Repeat this cycle until close-out (step 7). Node statuses and their transitions:
 2. **Collect**: for each returned worker, read its `result.md`; verify the evidence it cites (log lines, check output) exists before marking the node `executed`. Update measures and the loop log path. Mark dependants of new `blocked` or `finding` nodes `blocked-upstream`.
 3. **Gate**: an `executed` node with gate `none`, or passing its `check` gate, goes to `integrating` (see Merging). A `review` gate appends the node and its revision to `reviews/<gate>.md` and marks it `waiting-review`. Apply every `approved` or `changes-requested` review file per the transitions table, then archive it.
 4. **Dispatch**: find ready nodes (inputs present, gates passed, not waiting). Dispatch `stage-worker` subagents concurrently up to the caps; each running worker, and each live job with no worker, counts as one job against its stage's tool. A worktree has **one writer**: never dispatch a node whose worktree another `running` or `integrating` node holds. Give each the brief below.
-5. **Record**: write `state.json`, append to `log.md`, regenerate `STATUS.md` (with the status-colored diagram) after every change.
+5. **Record**: write `state.json`, append to `log.md`, regenerate `STATUS.md` (with the status-colored diagram) after every change. Every branch, commit, merge, dispatch, job launch, or cancel gets an `ops` entry: `intent` before, `done` after.
 6. **Wait** on running workers. Ask the user with `ask_question` only when nothing can progress without them; otherwise the pending reviews at the top of `STATUS.md` are how they learn.
 
 **Node brief** (the worker inherits none of this conversation, so the brief is complete on its own):

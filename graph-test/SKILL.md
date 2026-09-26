@@ -23,7 +23,8 @@ Formats: test plan [TESTPLAN-FORMAT.md](TESTPLAN-FORMAT.md), judging [JUDGE.md](
 | `graph_skill` | required: path to the graph skill's git repo |
 | `designs` | required: list of designs (1 to 5 typical) |
 | `max_rounds` | 10 patch rounds per batch |
-| `max_wallclock` | 7 days |
+| `max_wallclock` | 7 days: stops new launches and patches; running runs finish |
+| `hard_deadline` | none: when set, also stops running chats and cancels their jobs (step 4.4) |
 | `max_tries_per_issue` | 5 patches, then `needs-human` |
 | `poll_minutes` | 15 |
 
@@ -43,9 +44,13 @@ Record the chat id of every run in `state.json` the moment you have it.
 
 ## 0. Resume first
 
-List `graphtest/`. If the user named a batch, or exactly one batch has `state.json` with `phase` other than `closed`, read its `state.json`, `log.md`, and the latest `report.md`, then continue from the step its `phase` names. For each run marked `running`, query its chat status before doing anything else. Never restart a batch that has state.
+List `graphtest/`.
 
-Otherwise create `graphtest/<yyyymmdd>-<slug>/`, record the inputs in `state.json`, and continue with step 1.
+- The user named a batch, or exactly one batch has `state.json` with `phase` other than `closed` → resume it: read its `state.json`, `log.md`, and the latest `report.md`. **Reconcile** first: for each `ops` entry still `intent`, check git (did the commit or revert land?) and agentapi (does the chat exist?) and record the actual outcome; for each run marked `running`, query its chat status. Then continue from the step its `phase` names. Never restart a batch that has state.
+- Several batches are open → list them (id, phase, last update) and ask which to resume. Create a new one only when the engineer says so.
+- None open → create `graphtest/<yyyymmdd-hhmm>-<slug>/` (add `-2`, `-3`… if taken), record the inputs in `state.json`, and continue with step 1.
+
+**Budget check**, before every launch and every patch, including after a failed try: when `round` has reached `max_rounds` or `max_wallclock` has passed since `started`, start nothing new, let running runs end, and go to step 9 with final confirmation `skipped`. When `hard_deadline` has passed, also stop every running chat as in step 4.4.
 
 ## 1. Test plan
 
@@ -72,7 +77,7 @@ A run is always **fresh**:
 
 Launch all designs that need a run at once, up to the concurrency the engineer allows (none stated: all). Set the run `running`.
 
-The first launch is the **baseline** (`phase: baseline`): every design, unpatched. Its verdicts seed `issues.md`; then go to step 6.
+The first launch is the **baseline** (`phase: baseline`): every design, unpatched. Its verdicts seed `issues.md`. Open issues → step 6; none → step 8.
 
 ## 4. Watch
 
@@ -106,7 +111,7 @@ Pick the open issue that blocks the most nodes (ties: earliest node in the graph
 
 Run the patched graph from scratch on **all** designs. **Keep** the patch only if the target issue is gone on every design that had it and no node that passed before now fails on any design. Otherwise revert it and count it as a failed try on its issue. Update `report.md` after every round (step 9 format).
 
-Loop back to step 6 until no open issue remains, or `max_rounds` or `max_wallclock` is reached. At a limit, start nothing new, let running runs end, and go to step 9.
+Loop back to step 6 while an open issue remains (the budget check still applies); when none remains, go to step 8.
 
 ## 8. Final confirmation
 
@@ -117,11 +122,17 @@ On the final commit, per design:
 
 Compare the pair as JUDGE.md "Learnings reuse" describes. This is the only place learnings carry over between runs.
 
+Set `confirmation` in `state.json`:
+
+- Both runs pass on every design → `confirmed`.
+- A run fails an expectation → open an issue for it. If budget remains, go to step 6, then return here on the new final commit. Otherwise `unconfirmed`.
+- A verdict is `unknown` → rerun that run once; still `unknown` → `inconclusive`.
+
 ## 9. Report
 
 Write `report.md`:
 
-- **Summary**: batch id, graph skill commits (base, final), designs, rounds used, wall-clock used, why it stopped.
+- **Summary**: batch id, graph skill commits (base, final), designs, rounds used, wall-clock used, why it stopped, and `confirmation` (`confirmed`, `unconfirmed`, `inconclusive`, or `skipped`). Call the graph verified only when it is `confirmed`.
 - **Per design, per node**: intention met / not met / not reached, subagent correct, loops correct, from the last full run.
 - **Issues**: each with status (`fixed`, `needs-human`, `open`), the patches kept and reverted, and the evidence.
 - **Learnings log**: the four verdicts from JUDGE.md, and the reuse comparison from step 8.
@@ -134,6 +145,7 @@ Set `phase: closed`. Report in the chat: the branch with kept patches, counts of
 
 - Trust the files over your memory: re-read `state.json` at the start of every poll cycle.
 - Write `state.json` after every change (temp file, then rename) and append to `log.md`.
+- Record every git commit or revert, chat start or stop, and job cancel in `ops` as `intent` before doing it and `done` after, so a resume can tell which side of it a crash fell on.
 - Never ask the engineer anything outside the review files, except when nothing can progress without them.
 - **Write scopes**. Each kind of write has one home:
   - patches: files inside `graph_skill`, on the `graphtest/<id>` branch;
