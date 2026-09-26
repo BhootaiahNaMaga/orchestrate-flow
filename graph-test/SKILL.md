@@ -79,7 +79,7 @@ The first launch is the **baseline** (`phase: baseline`): every design, unpatche
 Every `poll_minutes`, for each running run:
 
 1. Read the new part of the transcript and trace since the last poll (keep a cursor in `state.json`).
-2. **Questions**: if the graph is waiting on the user, answer from the answer sheet via send message. A question not on the sheet is an issue (`unplanned-question`); answer it with the most conservative option, record exactly what you answered, and carry on.
+2. **Questions**: the graph is waiting on the user when the chat asks a question **or** a review file on the answer sheet is `pending` in the run's folder. Answer from the answer sheet through its **How** channel: send message, or edit that review file. A question not on the sheet is an issue (`unplanned-question`); answer it with the most conservative option, record exactly what you answered, and carry on.
 3. **Early checks** from JUDGE.md "Watch-time checks": a node that should run as a subagent ran inline, a loop missing or broken, a node past its hang timeout with no trace or log growth.
 4. **Abort** when an issue is certain to spoil the run (the graph cannot reach a correct end from here): stop the chat, set the run `aborted` with the issue. Otherwise record the issue and let the run continue: later nodes still yield evidence.
 5. When the chat ends, set the run `ended` and go to step 5 for it.
@@ -135,4 +135,9 @@ Set `phase: closed`. Report in the chat: the branch with kept patches, counts of
 - Trust the files over your memory: re-read `state.json` at the start of every poll cycle.
 - Write `state.json` after every change (temp file, then rename) and append to `log.md`.
 - Never ask the engineer anything outside the review files, except when nothing can progress without them.
-- Never edit the design, the tool flow, or anything outside `graph_skill`.
+- **Write scopes**. Each kind of write has one home:
+  - patches: files inside `graph_skill`, on the `graphtest/<id>` branch;
+  - harness state: `graphtest/<id>/`;
+  - test controls: the review files named on an approved answer sheet, inside a run's own disposable folder.
+
+  The design and the tool flow stay read-only; their problems are findings.

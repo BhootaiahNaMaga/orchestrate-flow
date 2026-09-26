@@ -23,18 +23,19 @@ Everything a run knows lives in `.agents/runs/<run-id>/`. A fresh orchestrator w
 ```json
 {
   "run_id": "20260923-spec-to-coverage",
-  "phase": "intake | interview | awaiting-plan-approval | pilot | running | closed",
+  "phase": "intake | interview | awaiting-plan-approval | pilot | running | awaiting-review | closed",
   "integration_branch": "flow/20260923-spec-to-coverage",
   "caps": { "global": 10, "per_tool": { "formal": 4 } },
   "items": ["cg_cand_001", "cg_cand_002"],
   "nodes": {
     "verify/cg_cand_001": {
-      "status": "pending | ready | running | waiting-review | done | blocked | finding",
+      "status": "pending | ready | running | executed | waiting-review | integrating | done | blocked | blocked-upstream | finding",
       "tool": "formal",
       "worktree": "wt/cg_cand_001",
       "branch": "flow/20260923-spec-to-coverage/cg_cand_001",
       "rounds": 4,
       "best_measure": 37,
+      "best_commit": "9f8e7d6",
       "stuck_count": 1,
       "queue_job_ids": ["123456"],
       "updated": "2026-09-23T18:40:00Z",
@@ -51,13 +52,34 @@ Write it after every change; write to a temp file and rename so a crash never le
 
 | Status | Meaning |
 |---|---|
-| `pending` | inputs not yet available |
+| `pending` | inputs not yet available (an upstream node is not `done`) |
 | `ready` | can be dispatched |
 | `running` | a worker owns it |
-| `waiting-review` | a human review gate it depends on is open |
-| `done` | exit check passed, evidence verified, merged |
-| `blocked` | loop stuck/regressed 3 times or hit hard cap; notes in `loop.md` |
+| `executed` | worker returned `done` and its evidence is verified; not yet through its gate |
+| `waiting-review` | its outputs are listed in an open `review` gate file |
+| `integrating` | its branch is being merged and checked (Merging in SKILL.md) |
+| `done` | gate passed and merged into `flow/<run-id>`; dependants may start |
+| `blocked` | loop stuck/regressed 3 times, hit hard cap, or needs a user decision; notes in `loop.md` / `result.md` |
+| `blocked-upstream` | a node it depends on is `blocked` or `finding`; re-evaluated when that node changes |
 | `finding` | root cause is outside edit scope (RTL, spec); explained in `result.md` |
+
+## Transitions
+
+| From | Event | To |
+|---|---|---|
+| `pending` | every upstream node `done` | `ready` |
+| `pending` | an upstream node `blocked`, `blocked-upstream`, or `finding` | `blocked-upstream` |
+| `ready` | dispatched | `running` |
+| `running` | `result.md` `done`, evidence verified | `executed` |
+| `running` | `result.md` `blocked` or `finding` | `blocked` / `finding` |
+| `executed` | gate `none` or `check` (check passes) | `integrating` |
+| `executed` | gate `check` fails | `ready` (failure in the brief's Notes) |
+| `executed` | gate `review` | `waiting-review` |
+| `waiting-review` | review `approved` covering this node at its recorded revision | `integrating` |
+| `waiting-review` | review `changes-requested` | `ready` (comments in the brief's Notes) |
+| `integrating` | merged and integration check passes | `done` |
+| `integrating` | conflict or integration check fails | `ready` (failure in the brief's Notes) |
+| `blocked`, `finding` | user resolves it (review or plan change) | `ready` |
 
 A `running` node found on resume with no live worker is re-dispatched; its `loop.md` tells the worker where to continue.
 
@@ -66,9 +88,11 @@ A `running` node found on resume with no live worker is re-dispatched; its `loop
 ```md
 ---
 status: done | blocked | finding
+terminal_reason: pass | stuck | cap | finding | blocked-decision
 measure: <final value>
 rounds: <n>
-commit: <sha>
+tested_commit: <sha the final measure came from>
+best_commit: <sha of the best tree, the one to merge>
 ---
 ## Evidence
 <exit check command and the log lines proving it passed>
@@ -85,6 +109,9 @@ commit: <sha>
 ```md
 ---
 status: pending | approved | changes-requested
+round: <n>
+items:
+  - <stage>/<item> @ <revision sha>
 ---
 ## What to review
 <files, items, links to logs>
@@ -93,7 +120,7 @@ status: pending | approved | changes-requested
 <the user writes here>
 ```
 
-The user approves by editing `status`. Items appended to an open review stay in the same file so reviews batch.
+The user approves by editing `status`. An approval covers exactly the nodes listed under `items`, at the listed revisions. Nodes appended while the file is `pending` join the same round, so reviews batch. Once the orchestrator applies an approval or change request, it moves the file to `reviews/archive/<gate>-<round>.md`. Later nodes start a fresh `reviews/<gate>.md` with the next round number, so they never inherit an earlier approval.
 
 ## STATUS.md
 

@@ -62,7 +62,7 @@ Write `plan.md` in the format of [PLAN-FORMAT.md](PLAN-FORMAT.md), including the
 - Size concurrency to the license caps, not to the item count.
 - Make each loop's first action the cheapest one that can fail.
 - Add hooks only for yes/no enforcement ([HOOKS.md](HOOKS.md)); put judgment in the node brief.
-- Every per-item stage starts after the **pilot** gate (step 5).
+- Every per-item stage starts after the **pilot** gate (step 5), except for the pilot item itself.
 
 State the expected critical path and where you expect time to go. Done when every stage has skills, inputs, outputs, scope, gate, and (if looping) exit check, progress measure, and caps.
 
@@ -78,11 +78,11 @@ Run once-only setup stages, then take **one** item through every stage exactly a
 
 ## 6. Run
 
-Repeat this cycle until every node is `done`, `blocked`, or `finding`:
+Repeat this cycle until close-out (step 7). Node statuses and their transitions: [RUN-STATE.md](RUN-STATE.md).
 
 1. **Re-read** `state.json` and every `reviews/*.md`. Trust the files over your memory.
-2. **Collect**: for each returned worker, read its `result.md`; verify the evidence it cites (log lines, check output) exists before marking the node `done`. Update measures and the loop log path.
-3. **Gate**: a node passing a `check` gate merges its item branch into `flow/<run-id>` (see Merging). A `review` gate writes or appends to `reviews/<gate>.md` and marks dependants `waiting-review`.
+2. **Collect**: for each returned worker, read its `result.md`; verify the evidence it cites (log lines, check output) exists before marking the node `executed`. Update measures and the loop log path. Mark dependants of new `blocked` or `finding` nodes `blocked-upstream`.
+3. **Gate**: an `executed` node with gate `none`, or passing its `check` gate, goes to `integrating` (see Merging). A `review` gate appends the node and its revision to `reviews/<gate>.md` and marks it `waiting-review`. Apply every `approved` or `changes-requested` review file per the transitions table, then archive it.
 4. **Dispatch**: find ready nodes (inputs present, gates passed, not waiting). Dispatch `stage-worker` subagents concurrently up to the caps; each running worker counts as one job against its stage's tool. Give each the brief below.
 5. **Record**: write `state.json`, append to `log.md`, regenerate `STATUS.md` (with the status-colored diagram) after every change.
 6. **Wait** on running workers. Ask the user with `ask_question` only when nothing can progress without them; otherwise the pending reviews at the top of `STATUS.md` are how they learn.
@@ -112,4 +112,6 @@ Write result.md when done, blocked, or finding.
 
 ## 7. Close-out
 
-When no node can progress: write `retrospective.md` (where wall-clock went, which loops stalled and why, which hooks and notes helped, findings for the user) and save or update the flow profile ([PROFILE-FORMAT.md](PROFILE-FORMAT.md)). Remove worktrees of `done` items; keep `blocked` ones for inspection. Set `phase: closed`. Report to the user: the integration branch, counts of done / blocked / finding, the findings list, and the path to `STATUS.md`.
+Close out when every node is `done`, `blocked`, `blocked-upstream`, or `finding`. When nothing can progress only because review files are `pending`, the run is waiting, not finished: set `phase: awaiting-review`, keep it open, and return to step 6 on the next invocation.
+
+At close-out: write `retrospective.md` (where wall-clock went, which loops stalled and why, which hooks and notes helped, findings for the user) and save or update the flow profile ([PROFILE-FORMAT.md](PROFILE-FORMAT.md)). Remove worktrees of `done` items; keep `blocked` ones for inspection. Set `phase: closed`. Report to the user: the integration branch, counts of done / blocked / finding, the findings list, and the path to `STATUS.md`.

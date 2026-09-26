@@ -9,11 +9,13 @@ The harness runs these every poll, on the new part of the trace only. They are c
 | Check | Fails when | Abort? |
 |---|---|---|
 | **subagent** | a node marked `subagent` in the test plan runs its work in the parent chat instead (no subagent dispatch event before its tool calls) | yes, once that node's work has started inline |
-| **loop present** | a looping node reaches its end without a second round after a failed exit check, or ends without evaluating the exit check | yes |
-| **loop broken** | the round counter resets, the same round repeats with no fix between, rounds pass the cap, or the loop exits on anything other than the exit check, stuck limit, or cap | yes |
+| **loop present** | a looping node ends without evaluating the exit check, or ends after a failed check without a terminal reason from the test plan | yes |
+| **loop broken** | the round counter resets, the same round repeats with no fix between, rounds pass the cap, or the loop exits on a reason not in the test plan's terminal reasons | yes |
 | **hang** | no trace or log growth for longer than the node's hang timeout | yes |
 | **unplanned question** | the graph asks something not on the answer sheet | no |
 | **scope** | a node edits outside the paths the graph skill allows it | no, unless it corrupts later nodes' inputs |
+
+Read a loop's **exit reason** before judging its rounds. A permitted unsuccessful exit (`finding`, `blocked-decision`, `stuck`, `cap`) is an **outcome**: the loop worked, and the run continues with no abort and no patch. Only a **protocol violation** (the rows above) is an issue. A loop with round cap 1 never owes a second round.
 
 ## Full verdict
 

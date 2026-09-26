@@ -17,16 +17,17 @@ approved: pending
 - depends on: <nodes>
 - loops:
   - <loop name>: exit check <condition>; progress <measure, direction>; round cap <n>
+    terminal reasons: pass | stuck | cap | finding | blocked-decision   (source: <graph skill file:line>)
 - learnings: <what this node should log, e.g. "root cause of each failed round">
 - hang timeout: <minutes with no trace or log growth>
 - expected duration: <range>
 
 ## Answer sheet
 
-| # | When asked (node / trigger) | Question (match on meaning) | Answer |
-|---|---|---|---|
-| 1 | plan gate | approve the plan? | approve |
-| 2 | interview | which base branch? | main |
+| # | When asked (node / trigger) | Question (match on meaning) | Answer | How |
+|---|---|---|---|---|
+| 1 | plan gate | approve the plan? | approve | review-file `reviews/plan.md` |
+| 2 | interview | which base branch? | main | chat |
 
 ## Assumptions
 - ASSUMED: <anything the graph skill does not state>
@@ -36,5 +37,7 @@ approved: pending
 
 - An **intention** must be checkable by the judge from the transcript, trace, or files. "Writes good tests" is not; "tb compiles and the smoke test passes (log line `SMOKE PASS`)" is.
 - A node is `subagent` when the graph skill dispatches it as one, or when its instructions say it runs in its own context. Say which.
-- Every question the graph can ask belongs in the answer sheet. Find them by reading every gate, `ask_question` call, and interview step in the graph skill. `approve` for every gate unless the engineer says otherwise.
+- Every question the graph can ask belongs in the answer sheet. Find them by reading every gate, `ask_question` call, review file the graph writes (`reviews/*.md`), and interview step in the graph skill. `approve` for every gate unless the engineer says otherwise.
+- **How** is the channel the graph reads the answer from: `chat` (send message), or `review-file <path>` (path relative to the graph's run folder; the harness sets `status: approved` or `changes-requested` in its frontmatter and writes the answer under Comments). Use what the graph skill actually reads; a file gate answered in chat never opens.
+- **Terminal reasons** list every way the graph skill lets the loop end, successful or not, each with its source. A loop ending on a listed reason is correct, even after one round.
 - Hang timeout: at least 2× the longest silent stretch the node's tool can normally produce (a long synthesis step prints nothing for a while). When unsure, err long and mark `ASSUMED`.
